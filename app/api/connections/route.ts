@@ -1,0 +1,142 @@
+import {
+  getOrCreateAnonymousSession,
+  setAnonymousSessionCookie
+} from '@/lib/anonymous-session';
+import { auth } from '@/lib/auth';
+import { prisma } from '@/lib/prisma';
+import {
+  getActiveConnections,
+  saveCustomHeadersConnection,
+  saveOAuthConnection
+} from '@/lib/server-connection';
+import { NextResponse } from 'next/server';
+import { z } from 'zod';
+
+export const dynamic = 'force-dynamic';
+
+let postSchema = z
+  .object({
+    serverUrl: z.string(),
+    serverName: z.string(),
+    authType: z.enum(['oauth', 'custom_headers']),
+    accessToken: z.string().optional(),
+    refreshToken: z.string().optional(),
+    headers: z.record(z.string(), z.string()).optional()
+  })
+  .refine(
+    data => {
+      if (data.authType === 'oauth' && !data.accessToken) {
+        return false;
+      }
+      if (data.authType === 'custom_headers' && !data.headers) {
+        return false;
+      }
+      return true;
+    },
+    {
+      message: 'Invalid auth configuration'
+    }
+  );
+
+export let GET = async () => {
+  try {
+    let session = await auth();
+
+    let userId: string | undefined;
+    let anonymousSessionId: string | undefined;
+
+    if (session?.user?.id) {
+      userId = session.user.id;
+    } else {
+      let anonymousToken = await getOrCreateAnonymousSession();
+      await setAnonymousSessionCookie(anonymousToken);
+
+      let anonymousSession = await prisma.anonymousSession.findUnique({
+        where: { sessionToken: anonymousToken }
+      });
+
+      if (!anonymousSession) {
+        return NextResponse.json({ error: 'Failed to get session' }, { status: 500 });
+      }
+
+      anonymousSessionId = anonymousSession.id;
+    }
+
+    let connections = await getActiveConnections(userId, anonymousSessionId);
+
+    let safeConnections = connections.map(conn => ({
+      id: conn.id,
+      serverUrl: conn.serverUrl,
+      serverName: conn.serverName,
+      authType: conn.authType,
+      lastUsedAt: conn.lastUsedAt,
+      hasCredentials: true
+    }));
+
+    return NextResponse.json({ connections: safeConnections });
+  } catch (error) {
+    console.error('Error fetching connections:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+};
+
+export let POST = async (request: Request) => {
+  try {
+    let body = await request.json();
+    let validatedData = postSchema.parse(body);
+    let { serverUrl, serverName, authType, accessToken, refreshToken, headers } =
+      validatedData;
+
+    let session = await auth();
+
+    let userId: string | undefined;
+    let anonymousSessionId: string | undefined;
+
+    if (session?.user?.id) {
+      userId = session.user.id;
+    } else {
+      let anonymousToken = await getOrCreateAnonymousSession();
+      await setAnonymousSessionCookie(anonymousToken);
+
+      let anonymousSession = await prisma.anonymousSession.findUnique({
+        where: { sessionToken: anonymousToken }
+      });
+
+      if (!anonymousSession) {
+        return NextResponse.json({ error: 'Failed to get session' }, { status: 500 });
+      }
+
+      anonymousSessionId = anonymousSession.id;
+    }
+
+    if (authType === 'oauth') {
+      await saveOAuthConnection(
+        serverUrl,
+        serverName,
+        accessToken!,
+        refreshToken,
+        userId,
+        anonymousSessionId
+      );
+    } else {
+      await saveCustomHeadersConnection(
+        serverUrl,
+        serverName,
+        headers as Record<string, string>,
+        userId,
+        anonymousSessionId
+      );
+    }
+
+    return NextResponse.json({ success: true }, { status: 201 });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { error: 'Invalid request data', details: error.issues },
+        { status: 400 }
+      );
+    }
+    console.error('Error creating connection:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+};

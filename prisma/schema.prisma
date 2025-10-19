@@ -1,0 +1,210 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// NextAuth.js Models
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  bio           String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts           Account[]
+  sessions           Session[]
+  customMCPServers   CustomMCPServer[]
+  oauthRegistrations OAuthRegistration[]
+  serverConnections  ServerConnection[]
+  chats              Chat[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// Anonymous Session for unauthenticated users
+model AnonymousSession {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique @default(cuid())
+  createdAt    DateTime @default(now())
+  expiresAt    DateTime
+
+  customMCPServers   CustomMCPServer[]
+  oauthRegistrations OAuthRegistration[]
+  serverConnections  ServerConnection[]
+  chats              Chat[]
+}
+
+// Custom MCP Servers (user-created)
+model CustomMCPServer {
+  id          String   @id @default(cuid())
+  name        String
+  url         String
+  description String?
+  category    String   @default("Custom")
+  transport   String   // 'sse' or 'streamable_http'
+
+  // Either userId OR anonymousSessionId will be set
+  userId            String?
+  user              User?              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  anonymousSessionId String?
+  anonymousSession   AnonymousSession? @relation(fields: [anonymousSessionId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+  @@index([anonymousSessionId])
+}
+
+// OAuth Client Registrations (cached per server URL)
+model OAuthRegistration {
+  id                String   @id @default(cuid())
+  serverUrl         String   // The MCP server URL
+  discoveryUrl      String   // OAuth discovery document URL
+  clientId          String
+  clientSecret      String?
+  isExpired         Boolean  @default(false)
+
+  // Either userId OR anonymousSessionId will be set
+  userId            String?
+  user              User?              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  anonymousSessionId String?
+  anonymousSession   AnonymousSession? @relation(fields: [anonymousSessionId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId, serverUrl, isExpired])
+  @@index([anonymousSessionId, serverUrl, isExpired])
+}
+
+// Stored Server Connections (encrypted credentials for quick reconnect)
+model ServerConnection {
+  id                String   @id @default(cuid())
+  serverUrl         String   // The MCP server URL
+  serverName        String   // Display name
+  displayName       String?  // Optional custom name set by user
+  authType          String   // 'oauth' or 'custom_headers'
+
+  // Encrypted credentials (access token OR custom headers JSON)
+  encryptedCredentials String @db.Text
+
+  // Either userId OR anonymousSessionId will be set
+  userId            String?
+  user              User?              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  anonymousSessionId String?
+  anonymousSession   AnonymousSession? @relation(fields: [anonymousSessionId], references: [id], onDelete: Cascade)
+
+  // Chats using this connection
+  chatServers       ChatServer[]
+
+  lastUsedAt  DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId, lastUsedAt])
+  @@index([anonymousSessionId, lastUsedAt])
+  @@index([lastUsedAt])
+}
+
+// Chat System
+model Chat {
+  id        String   @id @default(cuid())
+  name      String?  // Optional chat name (defaults to first message)
+
+  // Either userId OR anonymousSessionId will be set
+  userId            String?
+  user              User?              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  anonymousSessionId String?
+  anonymousSession   AnonymousSession? @relation(fields: [anonymousSessionId], references: [id], onDelete: Cascade)
+
+  messages  ChatMessage[]
+  servers   ChatServer[]  // MCP servers connected to this chat
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, updatedAt])
+  @@index([anonymousSessionId, updatedAt])
+}
+
+model ChatMessage {
+  id        String   @id @default(cuid())
+  chatId    String
+  chat      Chat     @relation(fields: [chatId], references: [id], onDelete: Cascade)
+
+  role      String   // 'user' | 'assistant' | 'system' | 'tool'
+  content   String   @db.Text
+  toolCalls Json?    // Store tool calls/results
+
+  createdAt DateTime @default(now())
+
+  @@index([chatId, createdAt])
+}
+
+model ChatServer {
+  id           String   @id @default(cuid())
+  chatId       String
+  chat         Chat     @relation(fields: [chatId], references: [id], onDelete: Cascade)
+
+  // Connection info - either custom server or connection ID
+  serverUrl    String
+  serverName   String
+  transport    String   @default("sse") // 'sse' or 'streamable_http'
+
+  connectionId String?           // Reference to ServerConnection for credentials
+  connection   ServerConnection? @relation(fields: [connectionId], references: [id], onDelete: SetNull)
+
+  createdAt    DateTime @default(now())
+
+  @@unique([chatId, serverUrl])
+  @@index([chatId])
+  @@index([connectionId])
+}

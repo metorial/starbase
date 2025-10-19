@@ -1,5 +1,6 @@
 'use client';
 
+import { listAllCapabilities } from '@/lib/mcp-capabilities';
 import { mcpManager, type MCPConnection } from '@/lib/mcp-client';
 import type { MCPServer } from '@/types/mcp';
 import { createContext, ReactNode, useCallback, useContext, useEffect, useState } from 'react';
@@ -76,14 +77,7 @@ export let MCPProvider = ({ children }: { children: ReactNode }) => {
   let refreshCapabilities = useCallback(async (serverId: string) => {
     let conn = mcpManager.getConnection(serverId);
     if (conn && conn.status === 'connected') {
-      let [tools, resources, resourceTemplates, prompts] = await Promise.all([
-        mcpManager.listTools(serverId),
-        mcpManager.listResources(serverId),
-        mcpManager.listResourceTemplates(serverId),
-        mcpManager.listPrompts(serverId)
-      ]);
-
-      conn.capabilities = { tools, resources, resourceTemplates, prompts };
+      conn.capabilities = await listAllCapabilities(conn);
       setConnection({ ...conn });
     }
   }, []);

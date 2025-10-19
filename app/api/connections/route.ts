@@ -1,14 +1,10 @@
-import {
-  getOrCreateAnonymousSession,
-  setAnonymousSessionCookie
-} from '@/lib/anonymous-session';
-import { auth } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
+import { handleApiError } from '@/lib/api-utils';
 import {
   getActiveConnections,
   saveCustomHeadersConnection,
   saveOAuthConnection
 } from '@/lib/server-connection';
+import { getSessionContext } from '@/lib/session-utils';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
@@ -40,27 +36,7 @@ let postSchema = z
 
 export let GET = async () => {
   try {
-    let session = await auth();
-
-    let userId: string | undefined;
-    let anonymousSessionId: string | undefined;
-
-    if (session?.user?.id) {
-      userId = session.user.id;
-    } else {
-      let anonymousToken = await getOrCreateAnonymousSession();
-      await setAnonymousSessionCookie(anonymousToken);
-
-      let anonymousSession = await prisma.anonymousSession.findUnique({
-        where: { sessionToken: anonymousToken }
-      });
-
-      if (!anonymousSession) {
-        return NextResponse.json({ error: 'Failed to get session' }, { status: 500 });
-      }
-
-      anonymousSessionId = anonymousSession.id;
-    }
+    let { userId, anonymousSessionId } = await getSessionContext();
 
     let connections = await getActiveConnections(userId, anonymousSessionId);
 
@@ -75,8 +51,7 @@ export let GET = async () => {
 
     return NextResponse.json({ connections: safeConnections });
   } catch (error) {
-    console.error('Error fetching connections:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return handleApiError(error);
   }
 };
 
@@ -87,27 +62,7 @@ export let POST = async (request: Request) => {
     let { serverUrl, serverName, authType, accessToken, refreshToken, headers } =
       validatedData;
 
-    let session = await auth();
-
-    let userId: string | undefined;
-    let anonymousSessionId: string | undefined;
-
-    if (session?.user?.id) {
-      userId = session.user.id;
-    } else {
-      let anonymousToken = await getOrCreateAnonymousSession();
-      await setAnonymousSessionCookie(anonymousToken);
-
-      let anonymousSession = await prisma.anonymousSession.findUnique({
-        where: { sessionToken: anonymousToken }
-      });
-
-      if (!anonymousSession) {
-        return NextResponse.json({ error: 'Failed to get session' }, { status: 500 });
-      }
-
-      anonymousSessionId = anonymousSession.id;
-    }
+    let { userId, anonymousSessionId } = await getSessionContext();
 
     if (authType === 'oauth') {
       await saveOAuthConnection(
@@ -130,13 +85,6 @@ export let POST = async (request: Request) => {
 
     return NextResponse.json({ success: true }, { status: 201 });
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: 'Invalid request data', details: error.issues },
-        { status: 400 }
-      );
-    }
-    console.error('Error creating connection:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return handleApiError(error);
   }
 };

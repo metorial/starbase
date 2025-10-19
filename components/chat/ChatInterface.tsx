@@ -907,9 +907,9 @@ let ChatInterface = ({ chatId, onChatCreated, onChatDeleted }: ChatInterfaceProp
                       connectionState === 'connected' &&
                       mcpConnection?.capabilities
                     ) {
-                      let toolCount = mcpConnection.capabilities.tools.length;
-                      let resourceCount = mcpConnection.capabilities.resources.length;
-                      let promptCount = mcpConnection.capabilities.prompts.length;
+                      let toolCount = mcpConnection.capabilities.tools?.length || 0;
+                      let resourceCount = mcpConnection.capabilities.resources?.length || 0;
+                      let promptCount = mcpConnection.capabilities.prompts?.length || 0;
                       statusMessage = `Connected - ${toolCount} tools, ${resourceCount} resources, ${promptCount} prompts`;
                       statusType = 'ok';
                     } else if (connectionState === 'error') {

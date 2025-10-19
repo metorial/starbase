@@ -17,7 +17,8 @@ export async function saveOAuthConnection(
   accessToken: string,
   refreshToken: string | undefined,
   userId?: string,
-  anonymousSessionId?: string
+  anonymousSessionId?: string,
+  transport?: 'sse' | 'streamable_http'
 ): Promise<void> {
   if (!userId && !anonymousSessionId) {
     throw new Error('Either userId or anonymousSessionId must be provided');
@@ -41,7 +42,8 @@ export async function saveOAuthConnection(
       encryptedCredentials,
       userId,
       anonymousSessionId,
-      lastUsedAt: new Date()
+      lastUsedAt: new Date(),
+      transport
     }
   });
 }
@@ -54,7 +56,8 @@ export async function saveCustomHeadersConnection(
   serverName: string,
   headers: Record<string, string>,
   userId?: string,
-  anonymousSessionId?: string
+  anonymousSessionId?: string,
+  transport?: 'sse' | 'streamable_http'
 ): Promise<void> {
   if (!userId && !anonymousSessionId) {
     throw new Error('Either userId or anonymousSessionId must be provided');
@@ -78,7 +81,8 @@ export async function saveCustomHeadersConnection(
       encryptedCredentials,
       userId,
       anonymousSessionId,
-      lastUsedAt: new Date()
+      lastUsedAt: new Date(),
+      transport
     }
   });
 }
@@ -163,6 +167,7 @@ export async function getConnection(
   serverName: string;
   displayName: string | null;
   authType: string;
+  transport: string | null;
   credentials:
     | { accessToken: string; refreshToken: string | null }
     | { headers: Record<string, string> };
@@ -199,6 +204,7 @@ export async function getConnection(
     serverName: connection.serverName,
     displayName: connection.displayName,
     authType: connection.authType,
+    transport: connection.transport,
     credentials
   };
 }

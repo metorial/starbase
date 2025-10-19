@@ -685,6 +685,7 @@ let ServerDetail = () => {
             authChallenge={connection.authChallenge}
             serverName={selectedServer.name}
             serverUrl={selectedServer.url}
+            serverTransport={selectedServer.transport}
             onAuth={handleOAuthSuccess}
           />
 
@@ -694,6 +695,7 @@ let ServerDetail = () => {
             authChallenge={connection.authChallenge}
             serverName={selectedServer.name}
             serverUrl={selectedServer.url}
+            serverTransport={selectedServer.transport}
             onAuth={handleCustomHeaders}
           />
         </>

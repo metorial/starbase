@@ -1,6 +1,6 @@
-import { getOrCreateAnonymousSession } from '@/lib/anonymous-session';
-import { auth } from '@/lib/auth';
+import { handleApiError } from '@/lib/api-utils';
 import { prisma } from '@/lib/prisma';
+import { getSessionContext } from '@/lib/session-utils';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
@@ -22,22 +22,7 @@ let postSchema = z.object({
 
 export let GET = async () => {
   try {
-    let session = await auth();
-
-    let anonymousSessionId: string | null = null;
-    if (!session?.user) {
-      let token = await getOrCreateAnonymousSession();
-      let anonSession = await prisma.anonymousSession.findUnique({
-        where: { sessionToken: token }
-      });
-      anonymousSessionId = anonSession?.id || null;
-    }
-
-    let userId = session?.user?.id;
-
-    if (!userId && !anonymousSessionId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    let { userId, anonymousSessionId } = await getSessionContext();
 
     let chats = await prisma.chat.findMany({
       where: userId ? { userId } : { anonymousSessionId },
@@ -53,29 +38,13 @@ export let GET = async () => {
 
     return NextResponse.json({ chats });
   } catch (error) {
-    console.error('Error fetching chats:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return handleApiError(error);
   }
 };
 
 export let POST = async (request: Request) => {
   try {
-    let session = await auth();
-
-    let anonymousSessionId: string | null = null;
-    if (!session?.user) {
-      let token = await getOrCreateAnonymousSession();
-      let anonSession = await prisma.anonymousSession.findUnique({
-        where: { sessionToken: token }
-      });
-      anonymousSessionId = anonSession?.id || null;
-    }
-
-    let userId = session?.user?.id;
-
-    if (!userId && !anonymousSessionId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    let { userId, anonymousSessionId } = await getSessionContext();
 
     let body = await request.json();
     let validatedData = postSchema.parse(body);
@@ -105,13 +74,6 @@ export let POST = async (request: Request) => {
 
     return NextResponse.json({ chat }, { status: 201 });
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: 'Invalid request data', details: error.issues },
-        { status: 400 }
-      );
-    }
-    console.error('Error creating chat:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return handleApiError(error);
   }
 };

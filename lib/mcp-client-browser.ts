@@ -4,7 +4,9 @@ import type { AuthChallenge, MCPServer } from '@/types/mcp';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
-import { getDefaultDiscoveryUrl, parseWWWAuthenticate } from './mcp-auth';
+import { probeServerAuth } from './mcp-auth-probe';
+import { listAllCapabilities, listCapability } from './mcp-capabilities';
+import { createTransport } from './mcp-transport';
 
 export interface MCPBrowserConnection {
   server: MCPServer;
@@ -14,24 +16,24 @@ export interface MCPBrowserConnection {
   error?: string;
   authChallenge?: AuthChallenge;
   capabilities?: {
-    tools: Array<{
+    tools?: Array<{
       name: string;
       description?: string;
       inputSchema: any;
     }>;
-    resources: Array<{
+    resources?: Array<{
       uri: string;
       name: string;
       description?: string;
       mimeType?: string;
     }>;
-    resourceTemplates: Array<{
+    resourceTemplates?: Array<{
       uriTemplate: string;
       name: string;
       description?: string;
       mimeType?: string;
     }>;
-    prompts: Array<{
+    prompts?: Array<{
       name: string;
       description?: string;
       arguments?: Array<{
@@ -54,63 +56,7 @@ export class MCPBrowserConnectionManager {
    * Probe server for auth requirements by making a test request
    */
   async probeAuth(server: MCPServer): Promise<AuthChallenge | null> {
-    try {
-      // Try OPTIONS first (more compatible with CORS)
-      let response = await fetch(server.url, {
-        method: 'OPTIONS',
-        redirect: 'manual'
-      });
-
-      // If OPTIONS doesn't return 401, try GET with a small timeout
-      if (response.status !== 401) {
-        let controller = new AbortController();
-        let timeoutId = setTimeout(() => controller.abort(), 3000);
-
-        try {
-          response = await fetch(server.url, {
-            method: 'GET',
-            redirect: 'manual',
-            signal: controller.signal
-          });
-        } catch (fetchError) {
-          // Timeout or abort is okay for auth probing
-          if (fetchError instanceof Error && fetchError.name !== 'AbortError') {
-            throw fetchError;
-          }
-        } finally {
-          clearTimeout(timeoutId);
-        }
-      }
-
-      if (response.status === 401) {
-        let wwwAuth = response.headers.get('WWW-Authenticate');
-        let authChallenge: AuthChallenge | null = null;
-
-        if (wwwAuth) {
-          authChallenge = parseWWWAuthenticate(wwwAuth);
-        }
-
-        // If we have an OAuth challenge but no discovery URL, use default per MCP spec
-        if (authChallenge?.type === 'oauth' && !authChallenge.discoveryUrl) {
-          authChallenge.discoveryUrl = getDefaultDiscoveryUrl(server.url);
-        }
-
-        // If still no auth challenge, but 401 returned, assume OAuth with default discovery
-        if (!authChallenge) {
-          authChallenge = {
-            type: 'oauth',
-            discoveryUrl: getDefaultDiscoveryUrl(server.url)
-          };
-        }
-
-        return authChallenge;
-      }
-
-      return null;
-    } catch (error) {
-      console.error('[MCP Browser] Auth probe failed:', error);
-      return null;
-    }
+    return probeServerAuth(server, '[MCP Browser]');
   }
 
   /**
@@ -121,9 +67,6 @@ export class MCPBrowserConnectionManager {
     server: MCPServer,
     authHeaders?: Record<string, string>
   ): Promise<MCPBrowserConnection> {
-    if (authHeaders) {
-    }
-
     // Check if already connected
     let existing = this.connections.get(server.id);
     if (existing && existing.status === 'connected') {
@@ -131,39 +74,7 @@ export class MCPBrowserConnectionManager {
     }
 
     // Create appropriate transport based on server transport type
-    let transport: SSEClientTransport | StreamableHTTPClientTransport;
-
-    if (authHeaders) {
-    } else {
-    }
-
-    if (server.transport === 'sse') {
-      // For SSE, we need to pass headers for both the initial EventSource connection
-      // (via eventSourceInit) and subsequent POST requests (via requestInit)
-      // The server-side eventsource library expects headers directly in the constructor options
-      let sseOptions = authHeaders
-        ? {
-            eventSourceInit: {
-              headers: authHeaders // For the initial SSE GET request
-            } as any, // Cast to any to bypass TypeScript's incomplete type definitions
-            requestInit: {
-              headers: authHeaders // For POST requests
-            }
-          }
-        : undefined;
-
-      transport = new SSEClientTransport(new URL(server.url), sseOptions);
-    } else {
-      // streamable_http - only needs requestInit
-      let httpOptions = authHeaders
-        ? {
-            requestInit: {
-              headers: authHeaders
-            }
-          }
-        : undefined;
-      transport = new StreamableHTTPClientTransport(new URL(server.url), httpOptions);
-    }
+    let transport = createTransport(server, authHeaders);
 
     let connection: MCPBrowserConnection = {
       server,
@@ -191,19 +102,7 @@ export class MCPBrowserConnectionManager {
       connection.status = 'connected';
 
       // Fetch all capabilities in parallel
-      let [tools, resources, resourceTemplates, prompts] = await Promise.all([
-        this.listTools(server.id),
-        this.listResources(server.id),
-        this.listResourceTemplates(server.id),
-        this.listPrompts(server.id)
-      ]);
-
-      connection.capabilities = {
-        tools,
-        resources,
-        resourceTemplates,
-        prompts
-      };
+      connection.capabilities = await listAllCapabilities(connection);
 
       this.connections.set(server.id, connection);
     } catch (error) {
@@ -235,62 +134,22 @@ export class MCPBrowserConnectionManager {
 
   async listTools(serverId: string) {
     let connection = this.connections.get(serverId);
-    if (!connection || connection.status !== 'connected') {
-      return [];
-    }
-
-    try {
-      let result = await connection.client.listTools();
-      return result.tools;
-    } catch (error) {
-      console.error('[MCP Browser] Error listing tools:', error);
-      return [];
-    }
+    return listCapability(connection, 'tools');
   }
 
   async listResources(serverId: string) {
     let connection = this.connections.get(serverId);
-    if (!connection || connection.status !== 'connected') {
-      return [];
-    }
-
-    try {
-      let result = await connection.client.listResources();
-      return result.resources;
-    } catch (error) {
-      console.error('[MCP Browser] Error listing resources:', error);
-      return [];
-    }
+    return listCapability(connection, 'resources');
   }
 
   async listResourceTemplates(serverId: string) {
     let connection = this.connections.get(serverId);
-    if (!connection || connection.status !== 'connected') {
-      return [];
-    }
-
-    try {
-      let result = await connection.client.listResourceTemplates();
-      return result.resourceTemplates || [];
-    } catch (error) {
-      // Resource templates are optional, so don't log as error if not supported
-      return [];
-    }
+    return listCapability(connection, 'resourceTemplates', false);
   }
 
   async listPrompts(serverId: string) {
     let connection = this.connections.get(serverId);
-    if (!connection || connection.status !== 'connected') {
-      return [];
-    }
-
-    try {
-      let result = await connection.client.listPrompts();
-      return result.prompts;
-    } catch (error) {
-      console.error('[MCP Browser] Error listing prompts:', error);
-      return [];
-    }
+    return listCapability(connection, 'prompts');
   }
 
   async callTool(serverId: string, name: string, args: any) {

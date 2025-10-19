@@ -1,9 +1,6 @@
-import {
-  getOrCreateAnonymousSession,
-  setAnonymousSessionCookie
-} from '@/lib/anonymous-session';
-import { auth } from '@/lib/auth';
+import { handleApiError } from '@/lib/api-utils';
 import { prisma } from '@/lib/prisma';
+import { getSessionContext } from '@/lib/session-utils';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
@@ -19,31 +16,16 @@ let postSchema = z.object({
 
 export let GET = async () => {
   try {
-    let session = await auth();
+    let { userId, anonymousSessionId } = await getSessionContext();
 
-    if (session?.user?.id) {
-      let servers = await prisma.customMCPServer.findMany({
-        where: { userId: session.user.id },
-        orderBy: { createdAt: 'desc' }
-      });
-
-      return NextResponse.json({ servers });
-    }
-
-    let anonymousToken = await getOrCreateAnonymousSession();
-    await setAnonymousSessionCookie(anonymousToken);
-
-    let anonymousSession = await prisma.anonymousSession.findUnique({
-      where: { sessionToken: anonymousToken },
-      include: { customMCPServers: true }
+    let servers = await prisma.customMCPServer.findMany({
+      where: userId ? { userId } : { anonymousSessionId },
+      orderBy: { createdAt: 'desc' }
     });
 
-    return NextResponse.json({
-      servers: anonymousSession?.customMCPServers || []
-    });
+    return NextResponse.json({ servers });
   } catch (error) {
-    console.error('Error fetching custom servers:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return handleApiError(error);
   }
 };
 
@@ -53,33 +35,7 @@ export let POST = async (request: Request) => {
     let validatedData = postSchema.parse(body);
     let { name, url, description, category, transport } = validatedData;
 
-    let session = await auth();
-
-    if (session?.user?.id) {
-      let server = await prisma.customMCPServer.create({
-        data: {
-          name,
-          url,
-          description,
-          category: category || 'Custom',
-          transport,
-          userId: session.user.id
-        }
-      });
-
-      return NextResponse.json({ server }, { status: 201 });
-    }
-
-    let anonymousToken = await getOrCreateAnonymousSession();
-    await setAnonymousSessionCookie(anonymousToken);
-
-    let anonymousSession = await prisma.anonymousSession.findUnique({
-      where: { sessionToken: anonymousToken }
-    });
-
-    if (!anonymousSession) {
-      return NextResponse.json({ error: 'Failed to create session' }, { status: 500 });
-    }
+    let { userId, anonymousSessionId } = await getSessionContext();
 
     let server = await prisma.customMCPServer.create({
       data: {
@@ -88,19 +44,13 @@ export let POST = async (request: Request) => {
         description,
         category: category || 'Custom',
         transport,
-        anonymousSessionId: anonymousSession.id
+        userId,
+        anonymousSessionId
       }
     });
 
     return NextResponse.json({ server }, { status: 201 });
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: 'Invalid request data', details: error.issues },
-        { status: 400 }
-      );
-    }
-    console.error('Error creating custom server:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return handleApiError(error);
   }
 };

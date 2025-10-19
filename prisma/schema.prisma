@@ -130,6 +130,7 @@ model ServerConnection {
   serverName        String   // Display name
   displayName       String?  // Optional custom name set by user
   authType          String   // 'oauth' or 'custom_headers'
+  transport         String?  // 'sse' or 'streamable_http' (optional for backward compatibility)
 
   // Encrypted credentials (access token OR custom headers JSON)
   encryptedCredentials String @db.Text

@@ -17,7 +17,8 @@ let postSchema = z
     authType: z.enum(['oauth', 'custom_headers']),
     accessToken: z.string().optional(),
     refreshToken: z.string().optional(),
-    headers: z.record(z.string(), z.string()).optional()
+    headers: z.record(z.string(), z.string()).optional(),
+    transport: z.enum(['sse', 'streamable_http']).optional()
   })
   .refine(
     data => {
@@ -59,7 +60,7 @@ export let POST = async (request: Request) => {
   try {
     let body = await request.json();
     let validatedData = postSchema.parse(body);
-    let { serverUrl, serverName, authType, accessToken, refreshToken, headers } =
+    let { serverUrl, serverName, authType, accessToken, refreshToken, headers, transport } =
       validatedData;
 
     let { userId, anonymousSessionId } = await getSessionContext();
@@ -71,7 +72,8 @@ export let POST = async (request: Request) => {
         accessToken!,
         refreshToken,
         userId,
-        anonymousSessionId
+        anonymousSessionId,
+        transport
       );
     } else {
       await saveCustomHeadersConnection(
@@ -79,7 +81,8 @@ export let POST = async (request: Request) => {
         serverName,
         headers as Record<string, string>,
         userId,
-        anonymousSessionId
+        anonymousSessionId,
+        transport
       );
     }
 

@@ -94,15 +94,29 @@ export let createFallbackEndpoints = (serverUrl: string): OAuthDiscoveryDocument
 };
 
 /**
+ * Create proxy URL for OAuth requests
+ */
+function createProxyUrl(targetUrl: string): string {
+  const proxyBase = '/api/mcp/proxy';
+  const params = new URLSearchParams({
+    target: targetUrl
+  });
+  return `${proxyBase}?${params.toString()}`;
+}
+
+/**
  * Fetch and parse OAuth discovery document
  * Falls back to default endpoints if discovery fails (404)
+ * Routes through proxy to avoid CORS issues
  */
 export async function fetchOAuthDiscovery(
   discoveryUrl: string,
   serverUrl?: string
 ): Promise<OAuthDiscoveryDocument> {
   try {
-    let response = await fetch(discoveryUrl, {
+    // Route through proxy to avoid CORS issues
+    let proxyUrl = createProxyUrl(discoveryUrl);
+    let response = await fetch(proxyUrl, {
       headers: {
         Accept: 'application/json'
       }
@@ -137,6 +151,7 @@ export let supportsClientRegistration = (discovery: OAuthDiscoveryDocument): boo
 
 /**
  * Register OAuth client dynamically
+ * Routes through proxy to avoid CORS issues
  */
 export async function registerOAuthClient(
   registrationEndpoint: string,
@@ -148,7 +163,9 @@ export async function registerOAuthClient(
     scope?: string;
   }
 ): Promise<{ client_id: string; client_secret?: string }> {
-  let response = await fetch(registrationEndpoint, {
+  // Route through proxy to avoid CORS issues
+  let proxyUrl = createProxyUrl(registrationEndpoint);
+  let response = await fetch(proxyUrl, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json'
@@ -192,6 +209,7 @@ export function buildAuthorizationUrl(
 
 /**
  * Exchange authorization code for access token
+ * Routes through proxy to avoid CORS issues
  */
 export async function exchangeCodeForToken(
   tokenEndpoint: string,
@@ -211,7 +229,9 @@ export async function exchangeCodeForToken(
     body.append('client_secret', clientSecret);
   }
 
-  let response = await fetch(tokenEndpoint, {
+  // Route through proxy to avoid CORS issues
+  let proxyUrl = createProxyUrl(tokenEndpoint);
+  let response = await fetch(proxyUrl, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded'

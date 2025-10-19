@@ -1049,6 +1049,7 @@ let ChatInterface = ({ chatId, onChatCreated, onChatDeleted }: ChatInterfaceProp
             authChallenge={authChallenge}
             serverName={authenticatingServer.serverName}
             serverUrl={authenticatingServer.serverUrl}
+            serverTransport={authenticatingServer.transport as 'sse' | 'streamable_http'}
             onAuth={handleAuthSuccess}
           />
 
@@ -1062,6 +1063,7 @@ let ChatInterface = ({ chatId, onChatCreated, onChatDeleted }: ChatInterfaceProp
             authChallenge={authChallenge}
             serverName={authenticatingServer.serverName}
             serverUrl={authenticatingServer.serverUrl}
+            serverTransport={authenticatingServer.transport as 'sse' | 'streamable_http'}
             onAuth={handleAuthSuccess}
           />
         </>

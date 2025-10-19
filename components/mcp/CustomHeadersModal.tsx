@@ -237,6 +237,7 @@ interface CustomHeadersModalProps {
   authChallenge: AuthChallenge;
   serverName: string;
   serverUrl: string;
+  serverTransport: 'sse' | 'streamable_http';
   onAuth: (headers: CustomHeaders) => void;
 }
 
@@ -246,6 +247,7 @@ let CustomHeadersModal = ({
   authChallenge,
   serverName,
   serverUrl,
+  serverTransport,
   onAuth
 }: CustomHeadersModalProps) => {
   let [headers, setHeaders] = useState<Array<{ key: string; value: string }>>([
@@ -292,7 +294,8 @@ let CustomHeadersModal = ({
           serverUrl,
           serverName,
           authType: 'custom_headers',
-          headers: customHeaders
+          headers: customHeaders,
+          transport: serverTransport
         })
       });
     } catch (saveErr) {

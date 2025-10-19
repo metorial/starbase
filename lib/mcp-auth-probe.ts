@@ -2,15 +2,57 @@ import type { AuthChallenge, MCPServer } from '@/types/mcp';
 import { getDefaultDiscoveryUrl, parseWWWAuthenticate } from './mcp-auth';
 
 /**
- * Probe server for auth requirements by making a test request
+ * Create proxy URL for auth probing
+ */
+function createProxyUrl(targetUrl: string, method: 'GET' | 'OPTIONS'): string {
+  const proxyBase = '/api/mcp/proxy';
+  const params = new URLSearchParams({
+    target: targetUrl
+  });
+  return `${proxyBase}?${params.toString()}`;
+}
+
+/**
+ * Check if OAuth discovery document exists at the default location
+ */
+async function checkOAuthDiscovery(serverUrl: string): Promise<boolean> {
+  try {
+    let discoveryUrl = getDefaultDiscoveryUrl(serverUrl);
+    let proxyUrl = createProxyUrl(discoveryUrl, 'GET');
+
+    let response = await fetch(proxyUrl, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json'
+      }
+    });
+
+    // If we get 200, the discovery document exists
+    return response.ok;
+  } catch (error) {
+    console.log('[MCP Auth Probe] Discovery check failed:', error);
+    return false;
+  }
+}
+
+/**
+ * Probe server for auth requirements by making a test request through the proxy
+ * First checks for OAuth discovery document, then makes auth probe requests
  */
 export async function probeServerAuth(
   server: MCPServer,
   logPrefix: string = '[MCP]'
 ): Promise<AuthChallenge | null> {
   try {
+    // First, proactively check if OAuth discovery document exists
+    // This is the proper way to detect OAuth per MCP spec
+    let hasOAuthDiscovery = await checkOAuthDiscovery(server.url);
+    console.log(`${logPrefix} OAuth discovery check for ${server.url}:`, hasOAuthDiscovery);
+
     // Try OPTIONS first (more compatible with CORS)
-    let response = await fetch(server.url, {
+    // Route through proxy to avoid CORS issues
+    let proxyUrl = createProxyUrl(server.url, 'OPTIONS');
+    let response = await fetch(proxyUrl, {
       method: 'OPTIONS',
       redirect: 'manual'
     });
@@ -21,7 +63,8 @@ export async function probeServerAuth(
       let timeoutId = setTimeout(() => controller.abort(), 3000);
 
       try {
-        response = await fetch(server.url, {
+        proxyUrl = createProxyUrl(server.url, 'GET');
+        response = await fetch(proxyUrl, {
           method: 'GET',
           redirect: 'manual',
           signal: controller.signal
@@ -44,20 +87,38 @@ export async function probeServerAuth(
         authChallenge = parseWWWAuthenticate(wwwAuth);
       }
 
-      // If we have an OAuth challenge but no discovery URL, use default per MCP spec
+      // If we found OAuth discovery document, use OAuth auth
+      if (hasOAuthDiscovery) {
+        return {
+          type: 'oauth',
+          discoveryUrl: getDefaultDiscoveryUrl(server.url),
+          realm: authChallenge?.realm,
+          scope: authChallenge?.scope
+        };
+      }
+
+      // If we have an OAuth challenge from header but no discovery URL, use default
       if (authChallenge?.type === 'oauth' && !authChallenge.discoveryUrl) {
         authChallenge.discoveryUrl = getDefaultDiscoveryUrl(server.url);
       }
 
-      // If still no auth challenge, but 401 returned, assume OAuth with default discovery
-      if (!authChallenge) {
-        authChallenge = {
+      // If we have a parsed challenge, return it
+      if (authChallenge) {
+        return authChallenge;
+      }
+
+      // If no parsed challenge but has OAuth discovery, assume OAuth
+      if (hasOAuthDiscovery) {
+        return {
           type: 'oauth',
           discoveryUrl: getDefaultDiscoveryUrl(server.url)
         };
       }
 
-      return authChallenge;
+      // Otherwise, assume custom headers
+      return {
+        type: 'custom_headers'
+      };
     }
 
     return null;

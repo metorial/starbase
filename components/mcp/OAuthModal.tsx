@@ -192,6 +192,7 @@ interface OAuthModalProps {
   authChallenge: AuthChallenge;
   serverName: string;
   serverUrl: string;
+  serverTransport: 'sse' | 'streamable_http';
   onAuth: (accessToken: string) => void;
 }
 
@@ -201,6 +202,7 @@ let OAuthModal = ({
   authChallenge,
   serverName,
   serverUrl,
+  serverTransport,
   onAuth
 }: OAuthModalProps) => {
   let [loading, setLoading] = useState(false);
@@ -321,7 +323,8 @@ let OAuthModal = ({
             serverName,
             authType: 'oauth',
             accessToken: event.data.accessToken,
-            refreshToken: null
+            refreshToken: null,
+            transport: serverTransport
           })
         });
 
@@ -511,7 +514,8 @@ let OAuthModal = ({
               serverName,
               authType: 'oauth',
               accessToken: tokenData.access_token,
-              refreshToken: tokenData.refresh_token || null
+              refreshToken: tokenData.refresh_token || null,
+              transport: serverTransport
             })
           });
         } catch (saveErr) {

@@ -11,8 +11,7 @@
       "transport": "sse",
       "status": "active",
       "publication_status": "public",
-      "created_at": "2025-01-01T00:00:00.000Z",
-      "isPopular": true
+      "created_at": "2025-01-01T00:00:00.000Z"
     },
     {
       "id": "audioscrape",
@@ -38,8 +37,7 @@
       "transport": "sse",
       "status": "active",
       "publication_status": "public",
-      "created_at": "2025-01-01T00:00:00.000Z",
-      "isPopular": true
+      "created_at": "2025-01-01T00:00:00.000Z"
     },
     {
       "id": "box",
@@ -52,7 +50,8 @@
       "transport": "streamable_http",
       "status": "active",
       "publication_status": "public",
-      "created_at": "2025-01-01T00:00:00.000Z"
+      "created_at": "2025-01-01T00:00:00.000Z",
+      "isPopular": true
     },
     {
       "id": "buildkite",
@@ -78,8 +77,7 @@
       "transport": "streamable_http",
       "status": "active",
       "publication_status": "public",
-      "created_at": "2025-01-01T00:00:00.000Z",
-      "isPopular": true
+      "created_at": "2025-01-01T00:00:00.000Z"
     },
     {
       "id": "carbonvoice",
@@ -211,7 +209,8 @@
       "transport": "streamable_http",
       "status": "active",
       "publication_status": "public",
-      "created_at": "2025-01-01T00:00:00.000Z"
+      "created_at": "2025-01-01T00:00:00.000Z",
+      "isPopular": true
     },
     {
       "id": "github",
@@ -290,8 +289,7 @@
       "transport": "sse",
       "status": "active",
       "publication_status": "public",
-      "created_at": "2025-01-01T00:00:00.000Z",
-      "isPopular": true
+      "created_at": "2025-01-01T00:00:00.000Z"
     },
     {
       "id": "indeed",
@@ -330,7 +328,8 @@
       "transport": "streamable_http",
       "status": "active",
       "publication_status": "public",
-      "created_at": "2025-01-01T00:00:00.000Z"
+      "created_at": "2025-01-01T00:00:00.000Z",
+      "isPopular": true
     },
     {
       "id": "kollektiv",
@@ -409,7 +408,8 @@
       "transport": "sse",
       "status": "active",
       "publication_status": "public",
-      "created_at": "2025-01-01T00:00:00.000Z"
+      "created_at": "2025-01-01T00:00:00.000Z",
+      "isPopular": true
     },
     {
       "id": "neon",
@@ -490,7 +490,8 @@
       "transport": "sse",
       "status": "active",
       "publication_status": "public",
-      "created_at": "2025-01-01T00:00:00.000Z"
+      "created_at": "2025-01-01T00:00:00.000Z",
+      "isPopular": true
     },
     {
       "id": "parallel-task",
@@ -622,7 +623,8 @@
       "transport": "streamable_http",
       "status": "active",
       "publication_status": "public",
-      "created_at": "2025-01-01T00:00:00.000Z"
+      "created_at": "2025-01-01T00:00:00.000Z",
+      "isPopular": true
     },
     {
       "id": "supabase",
@@ -635,8 +637,7 @@
       "transport": "streamable_http",
       "status": "active",
       "publication_status": "public",
-      "created_at": "2025-01-01T00:00:00.000Z",
-      "isPopular": true
+      "created_at": "2025-01-01T00:00:00.000Z"
     },
     {
       "id": "square",

@@ -8,7 +8,38 @@ export interface OAuthDiscoveryDocument {
   scopes_supported?: string[];
   response_types_supported?: string[];
   grant_types_supported?: string[];
+  code_challenge_methods_supported?: string[];
 }
+
+export let generateCodeVerifier = (): string => {
+  let array = new Uint8Array(32);
+  crypto.getRandomValues(array);
+  return base64UrlEncode(array);
+};
+
+let base64UrlEncode = (buffer: Uint8Array): string => {
+  let binary = '';
+  for (let i = 0; i < buffer.length; i++) {
+    binary += String.fromCharCode(buffer[i]);
+  }
+  let base64 = btoa(binary);
+  return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+};
+
+export let generateCodeChallenge = async (verifier: string): Promise<string> => {
+  let encoder = new TextEncoder();
+  let data = encoder.encode(verifier);
+  let hash = await crypto.subtle.digest('SHA-256', data);
+  return base64UrlEncode(new Uint8Array(hash));
+};
+
+export let supportsPKCE = (discovery: OAuthDiscoveryDocument): boolean => {
+  return (
+    discovery.code_challenge_methods_supported?.includes('S256') ||
+    discovery.code_challenge_methods_supported?.includes('plain') ||
+    false
+  );
+};
 
 export let getDefaultDiscoveryUrl = (serverUrl: string): string => {
   try {
@@ -148,7 +179,9 @@ export let buildAuthorizationUrl = (
   clientId: string,
   redirectUri: string,
   scope?: string,
-  state?: string
+  state?: string,
+  codeChallenge?: string,
+  codeChallengeMethod?: 'S256' | 'plain'
 ): string => {
   let params = new URLSearchParams({
     response_type: 'code',
@@ -164,6 +197,11 @@ export let buildAuthorizationUrl = (
     params.append('state', state);
   }
 
+  if (codeChallenge) {
+    params.append('code_challenge', codeChallenge);
+    params.append('code_challenge_method', codeChallengeMethod || 'S256');
+  }
+
   return `${authorizationEndpoint}?${params.toString()}`;
 };
 
@@ -172,7 +210,8 @@ export let exchangeCodeForToken = async (
   code: string,
   clientId: string,
   clientSecret: string | undefined,
-  redirectUri: string
+  redirectUri: string,
+  codeVerifier?: string
 ): Promise<{ access_token: string; refresh_token?: string; expires_in?: number }> => {
   let body = new URLSearchParams({
     grant_type: 'authorization_code',
@@ -183,6 +222,10 @@ export let exchangeCodeForToken = async (
 
   if (clientSecret) {
     body.append('client_secret', clientSecret);
+  }
+
+  if (codeVerifier) {
+    body.append('code_verifier', codeVerifier);
   }
 
   let proxyUrl = createProxyUrl(tokenEndpoint);

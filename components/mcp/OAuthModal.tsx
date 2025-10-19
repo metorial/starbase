@@ -4,8 +4,11 @@ import {
   buildAuthorizationUrl,
   exchangeCodeForToken,
   fetchOAuthDiscovery,
+  generateCodeChallenge,
+  generateCodeVerifier,
   registerOAuthClient,
-  supportsClientRegistration
+  supportsClientRegistration,
+  supportsPKCE
 } from '@/lib/mcp-auth';
 import type { AuthChallenge } from '@/types/mcp';
 import * as Dialog from '@radix-ui/react-dialog';
@@ -383,12 +386,23 @@ let OAuthModal = ({
 
       // Start OAuth flow with new credentials
       let state = Math.random().toString(36).substring(7);
+
+      let codeVerifier: string | undefined;
+      let codeChallenge: string | undefined;
+
+      if (supportsPKCE(discovery)) {
+        codeVerifier = generateCodeVerifier();
+        codeChallenge = await generateCodeChallenge(codeVerifier);
+      }
+
       let authUrl = buildAuthorizationUrl(
         discovery.authorization_endpoint,
         clientData.client_id,
         window.location.origin + '/oauth/callback',
         authChallenge.scope,
-        state
+        state,
+        codeChallenge,
+        'S256'
       );
 
       // Store client credentials for later token exchange
@@ -398,7 +412,8 @@ let OAuthModal = ({
           clientId: clientData.client_id,
           clientSecret: clientData.client_secret,
           tokenEndpoint: discovery.token_endpoint,
-          state
+          state,
+          codeVerifier
         })
       );
 
@@ -452,12 +467,23 @@ let OAuthModal = ({
       }
 
       let state = Math.random().toString(36).substring(7);
+
+      let codeVerifier: string | undefined;
+      let codeChallenge: string | undefined;
+
+      if (supportsPKCE(discovery)) {
+        codeVerifier = generateCodeVerifier();
+        codeChallenge = await generateCodeChallenge(codeVerifier);
+      }
+
       let authUrl = buildAuthorizationUrl(
         discovery.authorization_endpoint,
         clientId,
         window.location.origin + '/oauth/callback',
         authChallenge.scope,
-        state
+        state,
+        codeChallenge,
+        'S256'
       );
 
       // Store client credentials
@@ -467,7 +493,8 @@ let OAuthModal = ({
           clientId,
           clientSecret,
           tokenEndpoint: discovery.token_endpoint,
-          state
+          state,
+          codeVerifier
         })
       );
 
@@ -488,7 +515,6 @@ let OAuthModal = ({
     if (event.data.type === 'oauth_code' && event.data.code) {
       window.removeEventListener('message', handleOAuthCallback);
 
-      // Exchange code for token
       try {
         let oauthData = JSON.parse(sessionStorage.getItem(`oauth_${serverName}`) || '{}');
 
@@ -501,7 +527,8 @@ let OAuthModal = ({
           event.data.code,
           oauthData.clientId,
           oauthData.clientSecret,
-          window.location.origin + '/oauth/callback'
+          window.location.origin + '/oauth/callback',
+          oauthData.codeVerifier
         );
 
         // Save connection for quick reconnect

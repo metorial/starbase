@@ -114,32 +114,55 @@ export let getActiveConnections = async (
     }
   });
 
-  return connections.map(conn => {
-    let credentials: any;
+  let validConnections: Array<{
+    id: string;
+    serverUrl: string;
+    serverName: string;
+    displayName: string | null;
+    authType: string;
+    credentials:
+      | { accessToken: string; refreshToken: string | null }
+      | { headers: Record<string, string> };
+    lastUsedAt: Date;
+  }> = [];
 
-    if (conn.authType === 'oauth') {
-      let decrypted = decryptOAuthCredentials(conn.encryptedCredentials);
-      credentials = {
-        accessToken: decrypted.accessToken,
-        refreshToken: decrypted.refreshToken
-      };
-    } else {
-      let decrypted = decryptCustomHeaders(conn.encryptedCredentials);
-      credentials = {
-        headers: decrypted.headers
-      };
+  for (let conn of connections) {
+    try {
+      let credentials: any;
+
+      if (conn.authType === 'oauth') {
+        let decrypted = decryptOAuthCredentials(conn.encryptedCredentials);
+        credentials = {
+          accessToken: decrypted.accessToken,
+          refreshToken: decrypted.refreshToken
+        };
+      } else {
+        let decrypted = decryptCustomHeaders(conn.encryptedCredentials);
+        credentials = {
+          headers: decrypted.headers
+        };
+      }
+
+      validConnections.push({
+        id: conn.id,
+        serverUrl: conn.serverUrl,
+        serverName: conn.serverName,
+        displayName: conn.displayName,
+        authType: conn.authType,
+        credentials,
+        lastUsedAt: conn.lastUsedAt
+      });
+    } catch (error) {
+      console.error(
+        `[ServerConnection] Failed to decrypt connection ${conn.id} for ${conn.serverUrl}, skipping:`,
+        error
+      );
+      // Optionally delete the corrupted connection
+      await prisma.serverConnection.delete({ where: { id: conn.id } }).catch(() => {});
     }
+  }
 
-    return {
-      id: conn.id,
-      serverUrl: conn.serverUrl,
-      serverName: conn.serverName,
-      displayName: conn.displayName,
-      authType: conn.authType,
-      credentials,
-      lastUsedAt: conn.lastUsedAt
-    };
-  });
+  return validConnections;
 };
 
 export let getConnection = async (
@@ -168,30 +191,40 @@ export let getConnection = async (
     return null;
   }
 
-  let credentials: any;
+  try {
+    let credentials: any;
 
-  if (connection.authType === 'oauth') {
-    let decrypted = decryptOAuthCredentials(connection.encryptedCredentials);
-    credentials = {
-      accessToken: decrypted.accessToken,
-      refreshToken: decrypted.refreshToken
+    if (connection.authType === 'oauth') {
+      let decrypted = decryptOAuthCredentials(connection.encryptedCredentials);
+      credentials = {
+        accessToken: decrypted.accessToken,
+        refreshToken: decrypted.refreshToken
+      };
+    } else {
+      let decrypted = decryptCustomHeaders(connection.encryptedCredentials);
+      credentials = {
+        headers: decrypted.headers
+      };
+    }
+
+    return {
+      id: connection.id,
+      serverUrl: connection.serverUrl,
+      serverName: connection.serverName,
+      displayName: connection.displayName,
+      authType: connection.authType,
+      transport: connection.transport,
+      credentials
     };
-  } else {
-    let decrypted = decryptCustomHeaders(connection.encryptedCredentials);
-    credentials = {
-      headers: decrypted.headers
-    };
+  } catch (error) {
+    console.error(
+      `[ServerConnection] Failed to decrypt connection ${connection.id} for ${connection.serverUrl}:`,
+      error
+    );
+    // Delete the corrupted connection
+    await prisma.serverConnection.delete({ where: { id: connection.id } }).catch(() => {});
+    return null;
   }
-
-  return {
-    id: connection.id,
-    serverUrl: connection.serverUrl,
-    serverName: connection.serverName,
-    displayName: connection.displayName,
-    authType: connection.authType,
-    transport: connection.transport,
-    credentials
-  };
 };
 
 export let updateLastUsed = async (id: string): Promise<void> => {

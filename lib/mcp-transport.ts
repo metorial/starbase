@@ -71,24 +71,30 @@ function createProxyFetch(
       console.log('[MCP Transport] Resolved relative path to:', targetUrl);
     }
 
-    // If the URL points to localhost but should point to the real server
-    // (happens when server sends absolute URLs with localhost in the endpoint)
-    if (targetUrl.startsWith('http://localhost:') || targetUrl.startsWith('https://localhost:')) {
-      try {
-        const url = new URL(targetUrl);
-        const serverUrl = new URL(serverOrigin);
+    // If the URL points to the current app's domain or localhost, rewrite to actual server
+    // (happens when server sends absolute URLs that get resolved against window.location.origin)
+    try {
+      const url = new URL(targetUrl);
+      const appOrigin = window.location.origin;
+      const serverUrl = new URL(serverOrigin);
 
-        // Replace localhost with the actual server hostname (without port)
+      // Check if URL is pointing to localhost or the current app domain instead of the MCP server
+      const isLocalhost = url.hostname === 'localhost' || url.hostname === '127.0.0.1';
+      const isAppDomain = url.origin === appOrigin;
+      const isNotServerDomain = url.origin !== serverOrigin;
+
+      if ((isLocalhost || isAppDomain) && isNotServerDomain) {
+        // Replace with the actual server origin
         url.protocol = serverUrl.protocol;
         url.hostname = serverUrl.hostname;
         // Only set port if the server URL has a non-default port
         url.port = serverUrl.port || '';
 
         targetUrl = url.toString();
-        console.log('[MCP Transport] Rewrote localhost URL to:', targetUrl);
-      } catch (e) {
-        console.error('[MCP Transport] Failed to rewrite localhost URL:', e);
+        console.log('[MCP Transport] Rewrote domain from', isLocalhost ? 'localhost' : appOrigin, 'to:', targetUrl);
       }
+    } catch (e) {
+      console.error('[MCP Transport] Failed to rewrite URL:', e);
     }
 
     // Create a proxy URL for this request

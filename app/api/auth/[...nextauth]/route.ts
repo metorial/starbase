@@ -1,3 +1,3 @@
 import { handlers } from '@/lib/auth';
 
-export const { GET, POST } = handlers;
+export let { GET, POST } = handlers;

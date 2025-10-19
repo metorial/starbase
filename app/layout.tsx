@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 import StyledComponentsRegistry from './registry';
 
-export const metadata: Metadata = {
+export let metadata: Metadata = {
   title: 'Starbase',
   description:
     'Connect to MCP servers and chat with AI agents that can use tools and access resources.'

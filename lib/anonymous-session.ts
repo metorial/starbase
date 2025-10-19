@@ -2,16 +2,12 @@ import { cookies } from 'next/headers';
 import { prisma } from './prisma';
 
 let ANONYMOUS_SESSION_COOKIE = 'anonymous_session';
-let SESSION_DURATION_DAYS = 90; // 90 days
+let SESSION_DURATION_DAYS = 90;
 
-/**
- * Get or create an anonymous session for unauthenticated users
- */
 export let getOrCreateAnonymousSession = async (): Promise<string> => {
   let cookieStore = await cookies();
   let existingToken = cookieStore.get(ANONYMOUS_SESSION_COOKIE)?.value;
 
-  // If we have a token, verify it exists and is valid
   if (existingToken) {
     let session = await prisma.anonymousSession.findUnique({
       where: { sessionToken: existingToken }
@@ -21,7 +17,6 @@ export let getOrCreateAnonymousSession = async (): Promise<string> => {
       return session.sessionToken;
     }
 
-    // Session expired or doesn't exist, clean up
     if (session) {
       await prisma.anonymousSession.delete({
         where: { id: session.id }
@@ -29,7 +24,6 @@ export let getOrCreateAnonymousSession = async (): Promise<string> => {
     }
   }
 
-  // Create new session
   let expiresAt = new Date();
   expiresAt.setDate(expiresAt.getDate() + SESSION_DURATION_DAYS);
 
@@ -42,10 +36,7 @@ export let getOrCreateAnonymousSession = async (): Promise<string> => {
   return newSession.sessionToken;
 };
 
-/**
- * Set the anonymous session cookie
- */
-export async function setAnonymousSessionCookie(sessionToken: string) {
+export let setAnonymousSessionCookie = async (sessionToken: string) => {
   let cookieStore = await cookies();
   let expiresAt = new Date();
   expiresAt.setDate(expiresAt.getDate() + SESSION_DURATION_DAYS);
@@ -57,11 +48,8 @@ export async function setAnonymousSessionCookie(sessionToken: string) {
     expires: expiresAt,
     path: '/'
   });
-}
+};
 
-/**
- * Get anonymous session from cookie (doesn't create if missing)
- */
 export let getAnonymousSessionFromCookie = async (): Promise<string | null> => {
   let cookieStore = await cookies();
   let token = cookieStore.get(ANONYMOUS_SESSION_COOKIE)?.value;
@@ -80,20 +68,16 @@ export let getAnonymousSessionFromCookie = async (): Promise<string | null> => {
   return token;
 };
 
-/**
- * Migrate anonymous session servers to a user account
- */
-export async function migrateAnonymousServers(
+export let migrateAnonymousServers = async (
   anonymousSessionToken: string,
   userId: string
-): Promise<number> {
+): Promise<number> => {
   let session = await prisma.anonymousSession.findUnique({
     where: { sessionToken: anonymousSessionToken }
   });
 
   if (!session) return 0;
 
-  // Update all servers to belong to the user
   let serversResult = await prisma.customMCPServer.updateMany({
     where: { anonymousSessionId: session.id },
     data: {
@@ -102,7 +86,6 @@ export async function migrateAnonymousServers(
     }
   });
 
-  // Also migrate OAuth registrations
   let oauthResult = await prisma.oAuthRegistration.updateMany({
     where: {
       anonymousSessionId: session.id,
@@ -114,8 +97,7 @@ export async function migrateAnonymousServers(
     }
   });
 
-  // Also migrate server connections
-  let connectionsResult = await prisma.serverConnection.updateMany({
+  await prisma.serverConnection.updateMany({
     where: { anonymousSessionId: session.id },
     data: {
       userId,
@@ -123,17 +105,13 @@ export async function migrateAnonymousServers(
     }
   });
 
-  // Optionally delete the anonymous session
   await prisma.anonymousSession.delete({
     where: { id: session.id }
   });
 
   return serversResult.count;
-}
+};
 
-/**
- * Clean up expired anonymous sessions
- */
 export let cleanupExpiredSessions = async (): Promise<number> => {
   let result = await prisma.anonymousSession.deleteMany({
     where: {

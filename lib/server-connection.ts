@@ -8,10 +8,7 @@ import { prisma } from './prisma';
 
 let MAX_CONNECTION_AGE_DAYS = 30;
 
-/**
- * Save an OAuth connection for quick reconnect
- */
-export async function saveOAuthConnection(
+export let saveOAuthConnection = async (
   serverUrl: string,
   serverName: string,
   accessToken: string,
@@ -19,14 +16,13 @@ export async function saveOAuthConnection(
   userId?: string,
   anonymousSessionId?: string,
   transport?: 'sse' | 'streamable_http'
-): Promise<void> {
+): Promise<void> => {
   if (!userId && !anonymousSessionId) {
     throw new Error('Either userId or anonymousSessionId must be provided');
   }
 
   let encryptedCredentials = encryptOAuthCredentials(accessToken, refreshToken);
 
-  // Delete any existing connection for this server
   await prisma.serverConnection.deleteMany({
     where: {
       serverUrl,
@@ -46,26 +42,22 @@ export async function saveOAuthConnection(
       transport
     }
   });
-}
+};
 
-/**
- * Save a custom headers connection for quick reconnect
- */
-export async function saveCustomHeadersConnection(
+export let saveCustomHeadersConnection = async (
   serverUrl: string,
   serverName: string,
   headers: Record<string, string>,
   userId?: string,
   anonymousSessionId?: string,
   transport?: 'sse' | 'streamable_http'
-): Promise<void> {
+): Promise<void> => {
   if (!userId && !anonymousSessionId) {
     throw new Error('Either userId or anonymousSessionId must be provided');
   }
 
   let encryptedCredentials = encryptCustomHeaders(headers);
 
-  // Delete any existing connection for this server
   await prisma.serverConnection.deleteMany({
     where: {
       serverUrl,
@@ -85,12 +77,9 @@ export async function saveCustomHeadersConnection(
       transport
     }
   });
-}
+};
 
-/**
- * Get all active connections for a user or anonymous session
- */
-export async function getActiveConnections(
+export let getActiveConnections = async (
   userId?: string,
   anonymousSessionId?: string
 ): Promise<
@@ -105,7 +94,7 @@ export async function getActiveConnections(
       | { headers: Record<string, string> };
     lastUsedAt: Date;
   }>
-> {
+> => {
   if (!userId && !anonymousSessionId) {
     return [];
   }
@@ -151,13 +140,9 @@ export async function getActiveConnections(
       lastUsedAt: conn.lastUsedAt
     };
   });
-}
+};
 
-/**
- * Get a specific connection
- * Now uses foreign key constraints to ensure referential integrity
- */
-export async function getConnection(
+export let getConnection = async (
   id: string,
   userId?: string,
   anonymousSessionId?: string
@@ -171,7 +156,7 @@ export async function getConnection(
   credentials:
     | { accessToken: string; refreshToken: string | null }
     | { headers: Record<string, string> };
-} | null> {
+} | null> => {
   let connection = await prisma.serverConnection.findFirst({
     where: {
       id,
@@ -207,11 +192,8 @@ export async function getConnection(
     transport: connection.transport,
     credentials
   };
-}
+};
 
-/**
- * Update last used timestamp
- */
 export let updateLastUsed = async (id: string): Promise<void> => {
   await prisma.serverConnection.update({
     where: { id },
@@ -219,15 +201,12 @@ export let updateLastUsed = async (id: string): Promise<void> => {
   });
 };
 
-/**
- * Update connection display name
- */
-export async function updateDisplayName(
+export let updateDisplayName = async (
   id: string,
   displayName: string | null,
   userId?: string,
   anonymousSessionId?: string
-): Promise<void> {
+): Promise<void> => {
   await prisma.serverConnection.updateMany({
     where: {
       id,
@@ -235,27 +214,21 @@ export async function updateDisplayName(
     },
     data: { displayName }
   });
-}
+};
 
-/**
- * Delete a connection
- */
-export async function deleteConnection(
+export let deleteConnection = async (
   id: string,
   userId?: string,
   anonymousSessionId?: string
-): Promise<void> {
+): Promise<void> => {
   await prisma.serverConnection.deleteMany({
     where: {
       id,
       ...(userId ? { userId } : { anonymousSessionId })
     }
   });
-}
+};
 
-/**
- * Clean up old connections (older than 30 days)
- */
 export let cleanupOldConnections = async (): Promise<number> => {
   let cutoffDate = new Date();
   cutoffDate.setDate(cutoffDate.getDate() - MAX_CONNECTION_AGE_DAYS);
@@ -271,13 +244,10 @@ export let cleanupOldConnections = async (): Promise<number> => {
   return result.count;
 };
 
-/**
- * Migrate connections from anonymous session to user account
- */
-export async function migrateServerConnections(
+export let migrateServerConnections = async (
   anonymousSessionId: string,
   userId: string
-): Promise<number> {
+): Promise<number> => {
   let result = await prisma.serverConnection.updateMany({
     where: { anonymousSessionId },
     data: {
@@ -287,4 +257,4 @@ export async function migrateServerConnections(
   });
 
   return result.count;
-}
+};

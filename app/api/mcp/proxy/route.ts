@@ -3,15 +3,10 @@ import { NextRequest, NextResponse } from 'next/server';
 export const runtime = 'edge';
 export const dynamic = 'force-dynamic';
 
-/**
- * MCP Proxy Edge Function
- * Proxies MCP connections (SSE and HTTP streaming) to avoid CORS issues
- * Handles both GET (SSE) and POST (HTTP streaming) requests
- */
-export async function GET(request: NextRequest) {
+export let GET = async (request: NextRequest) => {
   try {
-    const searchParams = request.nextUrl.searchParams;
-    const targetUrl = searchParams.get('target');
+    let searchParams = request.nextUrl.searchParams;
+    let targetUrl = searchParams.get('target');
 
     if (!targetUrl) {
       return NextResponse.json({ error: 'Missing target URL' }, { status: 400 });
@@ -26,8 +21,8 @@ export async function GET(request: NextRequest) {
     }
 
     // Forward headers (excluding host and connection-related headers)
-    const forwardHeaders = new Headers();
-    const skipHeaders = new Set([
+    let forwardHeaders = new Headers();
+    let skipHeaders = new Set([
       'host',
       'connection',
       'keep-alive',
@@ -43,10 +38,10 @@ export async function GET(request: NextRequest) {
     });
 
     // Add custom auth headers if provided
-    const authHeadersParam = searchParams.get('auth_headers');
+    let authHeadersParam = searchParams.get('auth_headers');
     if (authHeadersParam) {
       try {
-        const authHeaders = JSON.parse(authHeadersParam);
+        let authHeaders = JSON.parse(authHeadersParam);
         Object.entries(authHeaders).forEach(([key, value]) => {
           forwardHeaders.set(key, value as string);
         });
@@ -58,7 +53,7 @@ export async function GET(request: NextRequest) {
     console.log('[MCP Proxy] Proxying GET request to:', url.toString());
 
     // Fetch from target - this returns a Response that can stream
-    const response = await fetch(url.toString(), {
+    let response = await fetch(url.toString(), {
       method: 'GET',
       headers: forwardHeaders,
       // @ts-ignore - Edge runtime supports signal
@@ -69,7 +64,7 @@ export async function GET(request: NextRequest) {
     console.log('[MCP Proxy] Content-Type:', response.headers.get('content-type'));
 
     // Create response headers with CORS
-    const responseHeaders = new Headers();
+    let responseHeaders = new Headers();
 
     // Copy all headers from upstream response
     response.headers.forEach((value, key) => {
@@ -79,10 +74,13 @@ export async function GET(request: NextRequest) {
     // Set CORS headers to allow browser access
     responseHeaders.set('access-control-allow-origin', '*');
     responseHeaders.set('access-control-allow-credentials', 'true');
-    responseHeaders.set('access-control-expose-headers', 'WWW-Authenticate, Authorization, Content-Type');
+    responseHeaders.set(
+      'access-control-expose-headers',
+      'WWW-Authenticate, Authorization, Content-Type'
+    );
 
     // For SSE, ensure proper headers
-    const contentType = response.headers.get('content-type') || '';
+    let contentType = response.headers.get('content-type') || '';
     if (contentType.includes('text/event-stream')) {
       responseHeaders.set('content-type', 'text/event-stream');
       responseHeaders.set('cache-control', 'no-cache');
@@ -103,12 +101,12 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+};
 
-export async function POST(request: NextRequest) {
+export let POST = async (request: NextRequest) => {
   try {
-    const searchParams = request.nextUrl.searchParams;
-    const targetUrl = searchParams.get('target');
+    let searchParams = request.nextUrl.searchParams;
+    let targetUrl = searchParams.get('target');
 
     if (!targetUrl) {
       return NextResponse.json({ error: 'Missing target URL' }, { status: 400 });
@@ -125,8 +123,8 @@ export async function POST(request: NextRequest) {
     console.log('[MCP Proxy] Proxying POST request to:', url.toString());
 
     // Forward headers
-    const forwardHeaders = new Headers();
-    const skipHeaders = new Set([
+    let forwardHeaders = new Headers();
+    let skipHeaders = new Set([
       'host',
       'connection',
       'keep-alive',
@@ -141,10 +139,10 @@ export async function POST(request: NextRequest) {
     });
 
     // Add custom auth headers if provided
-    const authHeadersParam = searchParams.get('auth_headers');
+    let authHeadersParam = searchParams.get('auth_headers');
     if (authHeadersParam) {
       try {
-        const authHeaders = JSON.parse(authHeadersParam);
+        let authHeaders = JSON.parse(authHeadersParam);
         Object.entries(authHeaders).forEach(([key, value]) => {
           forwardHeaders.set(key, value as string);
         });
@@ -154,10 +152,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Get request body
-    const body = await request.text();
+    let body = await request.text();
 
     // Make POST request to target
-    const response = await fetch(url.toString(), {
+    let response = await fetch(url.toString(), {
       method: 'POST',
       headers: forwardHeaders,
       body: body,
@@ -168,7 +166,7 @@ export async function POST(request: NextRequest) {
     console.log('[MCP Proxy] POST Response status:', response.status);
 
     // Create response headers with CORS
-    const responseHeaders = new Headers();
+    let responseHeaders = new Headers();
 
     // Copy all headers from upstream response
     response.headers.forEach((value, key) => {
@@ -178,7 +176,10 @@ export async function POST(request: NextRequest) {
     // Set CORS headers to allow browser access
     responseHeaders.set('access-control-allow-origin', '*');
     responseHeaders.set('access-control-allow-credentials', 'true');
-    responseHeaders.set('access-control-expose-headers', 'WWW-Authenticate, Authorization, Content-Type');
+    responseHeaders.set(
+      'access-control-expose-headers',
+      'WWW-Authenticate, Authorization, Content-Type'
+    );
 
     // Return the response (may be streaming)
     return new Response(response.body, {
@@ -193,12 +194,12 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+};
 
-export async function OPTIONS(request: NextRequest) {
+export let OPTIONS = async (request: NextRequest) => {
   try {
-    const searchParams = request.nextUrl.searchParams;
-    const targetUrl = searchParams.get('target');
+    let searchParams = request.nextUrl.searchParams;
+    let targetUrl = searchParams.get('target');
 
     if (!targetUrl) {
       return NextResponse.json({ error: 'Missing target URL' }, { status: 400 });
@@ -213,19 +214,19 @@ export async function OPTIONS(request: NextRequest) {
     }
 
     // Forward OPTIONS request
-    const forwardHeaders = new Headers();
+    let forwardHeaders = new Headers();
     request.headers.forEach((value, key) => {
       if (key.toLowerCase() !== 'host') {
         forwardHeaders.set(key, value);
       }
     });
 
-    const response = await fetch(url.toString(), {
+    let response = await fetch(url.toString(), {
       method: 'OPTIONS',
       headers: forwardHeaders
     });
 
-    const responseHeaders = new Headers();
+    let responseHeaders = new Headers();
     response.headers.forEach((value, key) => {
       responseHeaders.set(key, value);
     });
@@ -259,4 +260,4 @@ export async function OPTIONS(request: NextRequest) {
       }
     });
   }
-}
+};

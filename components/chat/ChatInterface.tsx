@@ -1072,8 +1072,7 @@ let ChatInterface = ({ chatId, onChatCreated, onChatDeleted }: ChatInterfaceProp
   );
 };
 
-// Separate component for chat input with streaming support
-function ChatInput({
+let ChatInput = ({
   chatId,
   selectedModel,
   mcpManager,
@@ -1097,7 +1096,7 @@ function ChatInput({
   selectedServers: ChatServer[];
   serverConnectionStates: Map<string, 'connecting' | 'connected' | 'error'>;
   onAuthenticate: (server: ChatServer) => void;
-}) {
+}) => {
   let [input, setInput] = useState('');
   let [isStreaming, setIsStreaming] = useState(false);
 
@@ -1453,6 +1452,6 @@ function ChatInput({
       </InputArea>
     </>
   );
-}
+};
 
 export default ChatInterface;

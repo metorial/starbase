@@ -1,10 +1,7 @@
 import type { CustomMCPServer } from '@prisma/client';
 import type { MCPServer } from '@/types/mcp';
 
-/**
- * Transform a CustomMCPServer from the database into an MCPServer interface
- */
-export function presentMCPServer(customServer: CustomMCPServer): MCPServer {
+export let presentMCPServer = (customServer: CustomMCPServer): MCPServer => {
   return {
     id: customServer.id,
     name: customServer.name,
@@ -18,11 +15,8 @@ export function presentMCPServer(customServer: CustomMCPServer): MCPServer {
     publication_status: 'private' as const,
     created_at: customServer.createdAt.toISOString()
   };
-}
+};
 
-/**
- * Transform multiple CustomMCPServers into MCPServer interfaces
- */
-export function presentMCPServers(customServers: CustomMCPServer[]): MCPServer[] {
+export let presentMCPServers = (customServers: CustomMCPServer[]): MCPServer[] => {
   return customServers.map(presentMCPServer);
-}
+};

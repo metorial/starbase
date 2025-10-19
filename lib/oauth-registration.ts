@@ -2,11 +2,7 @@ import { prisma } from './prisma';
 
 let REGISTRATION_MAX_AGE_DAYS = 7;
 
-/**
- * Get active OAuth registration for a server URL
- * Returns null if no active registration exists or if it's expired/too old
- */
-export async function getActiveRegistration(
+export let getActiveRegistration = async (
   serverUrl: string,
   userId?: string,
   anonymousSessionId?: string
@@ -16,7 +12,7 @@ export async function getActiveRegistration(
   clientSecret: string | null;
   discoveryUrl: string;
   createdAt: Date;
-} | null> {
+} | null> => {
   if (!userId && !anonymousSessionId) {
     return null;
   }
@@ -61,12 +57,9 @@ export async function getActiveRegistration(
     discoveryUrl: registration.discoveryUrl,
     createdAt: registration.createdAt
   };
-}
+};
 
-/**
- * Create new OAuth registration and mark any existing ones as expired
- */
-export async function createRegistration(
+export let createRegistration = async (
   serverUrl: string,
   discoveryUrl: string,
   clientId: string,
@@ -79,7 +72,7 @@ export async function createRegistration(
   clientSecret: string | null;
   discoveryUrl: string;
   createdAt: Date;
-}> {
+}> => {
   if (!userId && !anonymousSessionId) {
     throw new Error('Either userId or anonymousSessionId must be provided');
   }
@@ -101,7 +94,6 @@ export async function createRegistration(
     data: { isExpired: true }
   });
 
-  // Create new registration
   let registration = await prisma.oAuthRegistration.create({
     data: {
       serverUrl,
@@ -120,17 +112,14 @@ export async function createRegistration(
     discoveryUrl: registration.discoveryUrl,
     createdAt: registration.createdAt
   };
-}
+};
 
-/**
- * Check if a registration needs renewal (older than 7 days or expired)
- */
-export function needsRenewal(
+export let needsRenewal = (
   registration: {
     createdAt: Date;
     isExpired?: boolean;
   } | null
-): boolean {
+): boolean => {
   if (!registration) {
     return true;
   }
@@ -141,16 +130,12 @@ export function needsRenewal(
 
   let ageInDays = (Date.now() - registration.createdAt.getTime()) / (1000 * 60 * 60 * 24);
   return ageInDays > REGISTRATION_MAX_AGE_DAYS;
-}
+};
 
-/**
- * Migrate OAuth registrations from anonymous session to user account
- */
-export async function migrateOAuthRegistrations(
+export let migrateOAuthRegistrations = async (
   anonymousSessionId: string,
   userId: string
-): Promise<number> {
-  // Update all non-expired registrations to belong to the user
+): Promise<number> => {
   let result = await prisma.oAuthRegistration.updateMany({
     where: {
       anonymousSessionId,
@@ -163,11 +148,8 @@ export async function migrateOAuthRegistrations(
   });
 
   return result.count;
-}
+};
 
-/**
- * Clean up old expired registrations (older than 30 days)
- */
 export let cleanupExpiredRegistrations = async (): Promise<number> => {
   let thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);

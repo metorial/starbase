@@ -22,7 +22,7 @@ let Message = styled.div`
   text-align: center;
 `;
 
-function OAuthCallbackContent() {
+let OAuthCallbackContent = () => {
   let searchParams = useSearchParams();
 
   useEffect(() => {
@@ -79,7 +79,7 @@ function OAuthCallbackContent() {
       <Message>Processing OAuth callback...</Message>
     </Container>
   );
-}
+};
 
 let OAuthCallback = () => {
   return (
@@ -93,6 +93,6 @@ let OAuthCallback = () => {
       <OAuthCallbackContent />
     </Suspense>
   );
-}
+};
 
 export default OAuthCallback;

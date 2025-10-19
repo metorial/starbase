@@ -7,12 +7,7 @@ export interface SessionContext {
   anonymousSessionId: string | undefined;
 }
 
-/**
- * Get the current session context for API routes.
- * Returns either a userId (for authenticated users) or anonymousSessionId (for unauthenticated users).
- * Also sets the anonymous session cookie if needed.
- */
-export async function getSessionContext(): Promise<SessionContext> {
+export let getSessionContext = async (): Promise<SessionContext> => {
   let session = await auth();
 
   if (session?.user?.id) {
@@ -38,12 +33,9 @@ export async function getSessionContext(): Promise<SessionContext> {
     userId: undefined,
     anonymousSessionId: anonymousSession.id
   };
-}
+};
 
-/**
- * Lightweight version that doesn't set cookies (useful for GET requests that don't need to modify session)
- */
-export async function getSessionContextReadonly(): Promise<SessionContext> {
+export let getSessionContextReadonly = async (): Promise<SessionContext> => {
   let session = await auth();
 
   if (session?.user?.id) {
@@ -53,7 +45,6 @@ export async function getSessionContextReadonly(): Promise<SessionContext> {
     };
   }
 
-  // Handle anonymous session
   let anonymousToken = await getOrCreateAnonymousSession();
 
   let anonymousSession = await prisma.anonymousSession.findUnique({
@@ -64,4 +55,4 @@ export async function getSessionContextReadonly(): Promise<SessionContext> {
     userId: undefined,
     anonymousSessionId: anonymousSession?.id
   };
-}
+};

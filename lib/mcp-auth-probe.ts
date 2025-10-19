@@ -1,21 +1,15 @@
 import type { AuthChallenge, MCPServer } from '@/types/mcp';
 import { getDefaultDiscoveryUrl, parseWWWAuthenticate } from './mcp-auth';
 
-/**
- * Create proxy URL for auth probing
- */
-function createProxyUrl(targetUrl: string, method: 'GET' | 'OPTIONS'): string {
-  const proxyBase = '/api/mcp/proxy';
-  const params = new URLSearchParams({
+let createProxyUrl = (targetUrl: string, method: 'GET' | 'OPTIONS'): string => {
+  let proxyBase = '/api/mcp/proxy';
+  let params = new URLSearchParams({
     target: targetUrl
   });
   return `${proxyBase}?${params.toString()}`;
-}
+};
 
-/**
- * Check if OAuth discovery document exists at the default location
- */
-async function checkOAuthDiscovery(serverUrl: string): Promise<boolean> {
+let checkOAuthDiscovery = async (serverUrl: string): Promise<boolean> => {
   try {
     let discoveryUrl = getDefaultDiscoveryUrl(serverUrl);
     let proxyUrl = createProxyUrl(discoveryUrl, 'GET');
@@ -27,37 +21,27 @@ async function checkOAuthDiscovery(serverUrl: string): Promise<boolean> {
       }
     });
 
-    // If we get 200, the discovery document exists
     return response.ok;
   } catch (error) {
     console.log('[MCP Auth Probe] Discovery check failed:', error);
     return false;
   }
-}
+};
 
-/**
- * Probe server for auth requirements by making a test request through the proxy
- * First checks for OAuth discovery document, then makes auth probe requests
- */
-export async function probeServerAuth(
+export let probeServerAuth = async (
   server: MCPServer,
   logPrefix: string = '[MCP]'
-): Promise<AuthChallenge | null> {
+): Promise<AuthChallenge | null> => {
   try {
-    // First, proactively check if OAuth discovery document exists
-    // This is the proper way to detect OAuth per MCP spec
     let hasOAuthDiscovery = await checkOAuthDiscovery(server.url);
     console.log(`${logPrefix} OAuth discovery check for ${server.url}:`, hasOAuthDiscovery);
 
-    // Try OPTIONS first (more compatible with CORS)
-    // Route through proxy to avoid CORS issues
     let proxyUrl = createProxyUrl(server.url, 'OPTIONS');
     let response = await fetch(proxyUrl, {
       method: 'OPTIONS',
       redirect: 'manual'
     });
 
-    // If OPTIONS doesn't return 401, try GET with a small timeout
     if (response.status !== 401) {
       let controller = new AbortController();
       let timeoutId = setTimeout(() => controller.abort(), 3000);
@@ -70,7 +54,6 @@ export async function probeServerAuth(
           signal: controller.signal
         });
       } catch (fetchError) {
-        // Timeout or abort is okay for auth probing
         if (fetchError instanceof Error && fetchError.name !== 'AbortError') {
           throw fetchError;
         }
@@ -87,7 +70,6 @@ export async function probeServerAuth(
         authChallenge = parseWWWAuthenticate(wwwAuth);
       }
 
-      // If we found OAuth discovery document, use OAuth auth
       if (hasOAuthDiscovery) {
         return {
           type: 'oauth',
@@ -97,17 +79,14 @@ export async function probeServerAuth(
         };
       }
 
-      // If we have an OAuth challenge from header but no discovery URL, use default
       if (authChallenge?.type === 'oauth' && !authChallenge.discoveryUrl) {
         authChallenge.discoveryUrl = getDefaultDiscoveryUrl(server.url);
       }
 
-      // If we have a parsed challenge, return it
       if (authChallenge) {
         return authChallenge;
       }
 
-      // If no parsed challenge but has OAuth discovery, assume OAuth
       if (hasOAuthDiscovery) {
         return {
           type: 'oauth',
@@ -115,7 +94,6 @@ export async function probeServerAuth(
         };
       }
 
-      // Otherwise, assume custom headers
       return {
         type: 'custom_headers'
       };
@@ -126,4 +104,4 @@ export async function probeServerAuth(
     console.error(`${logPrefix} Auth probe failed:`, error);
     return null;
   }
-}
+};

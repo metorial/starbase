@@ -10,14 +10,9 @@ export interface OAuthDiscoveryDocument {
   grant_types_supported?: string[];
 }
 
-/**
- * Construct the default OAuth discovery URL from MCP server URL
- * Per MCP spec: discard path component and append /.well-known/oauth-authorization-server
- */
 export let getDefaultDiscoveryUrl = (serverUrl: string): string => {
   try {
     let url = new URL(serverUrl);
-    // Authorization base URL is origin (protocol + host, no path)
     let baseUrl = url.origin;
     return `${baseUrl}/.well-known/oauth-authorization-server`;
   } catch (error) {
@@ -26,13 +21,9 @@ export let getDefaultDiscoveryUrl = (serverUrl: string): string => {
   }
 };
 
-/**
- * Parse WWW-Authenticate header to detect auth type and extract metadata
- */
 export let parseWWWAuthenticate = (header: string): AuthChallenge | null => {
   if (!header) return null;
 
-  // Check for Bearer token with OAuth discovery
   let bearerMatch = header.match(/Bearer\s+(.+)/i);
   if (bearerMatch) {
     let params = parseBearerParams(bearerMatch[1]);
@@ -46,7 +37,6 @@ export let parseWWWAuthenticate = (header: string): AuthChallenge | null => {
       };
     }
 
-    // Bearer without discovery = custom headers
     return {
       type: 'custom_headers',
       realm: params.realm,
@@ -54,15 +44,11 @@ export let parseWWWAuthenticate = (header: string): AuthChallenge | null => {
     };
   }
 
-  // Any other auth scheme = custom headers
   return {
     type: 'custom_headers'
   };
 };
 
-/**
- * Parse Bearer token parameters
- */
 let parseBearerParams = (paramString: string): Record<string, string> => {
   let params: Record<string, string> = {};
   let regex = /(\w+)="([^"]*)"/g;
@@ -75,10 +61,6 @@ let parseBearerParams = (paramString: string): Record<string, string> => {
   return params;
 };
 
-/**
- * Create fallback OAuth endpoints from base URL
- * Per MCP spec: /authorize, /token, /register
- */
 export let createFallbackEndpoints = (serverUrl: string): OAuthDiscoveryDocument => {
   let url = new URL(serverUrl);
   let baseUrl = url.origin;
@@ -93,28 +75,19 @@ export let createFallbackEndpoints = (serverUrl: string): OAuthDiscoveryDocument
   };
 };
 
-/**
- * Create proxy URL for OAuth requests
- */
-function createProxyUrl(targetUrl: string): string {
-  const proxyBase = '/api/mcp/proxy';
-  const params = new URLSearchParams({
+let createProxyUrl = (targetUrl: string): string => {
+  let proxyBase = '/api/mcp/proxy';
+  let params = new URLSearchParams({
     target: targetUrl
   });
   return `${proxyBase}?${params.toString()}`;
-}
+};
 
-/**
- * Fetch and parse OAuth discovery document
- * Falls back to default endpoints if discovery fails (404)
- * Routes through proxy to avoid CORS issues
- */
-export async function fetchOAuthDiscovery(
+export let fetchOAuthDiscovery = async (
   discoveryUrl: string,
   serverUrl?: string
-): Promise<OAuthDiscoveryDocument> {
+): Promise<OAuthDiscoveryDocument> => {
   try {
-    // Route through proxy to avoid CORS issues
     let proxyUrl = createProxyUrl(discoveryUrl);
     let response = await fetch(proxyUrl, {
       headers: {
@@ -123,7 +96,6 @@ export async function fetchOAuthDiscovery(
     });
 
     if (response.status === 404 && serverUrl) {
-      // Discovery document not found, use fallback endpoints per MCP spec
       return createFallbackEndpoints(serverUrl);
     }
 
@@ -135,25 +107,17 @@ export async function fetchOAuthDiscovery(
     return discovery;
   } catch (error) {
     if (serverUrl && error instanceof TypeError) {
-      // Network error, try fallback
       return createFallbackEndpoints(serverUrl);
     }
     throw error;
   }
-}
+};
 
-/**
- * Check if OAuth server supports dynamic client registration
- */
 export let supportsClientRegistration = (discovery: OAuthDiscoveryDocument): boolean => {
   return !!discovery.registration_endpoint;
 };
 
-/**
- * Register OAuth client dynamically
- * Routes through proxy to avoid CORS issues
- */
-export async function registerOAuthClient(
+export let registerOAuthClient = async (
   registrationEndpoint: string,
   clientMetadata: {
     client_name: string;
@@ -162,8 +126,7 @@ export async function registerOAuthClient(
     response_types?: string[];
     scope?: string;
   }
-): Promise<{ client_id: string; client_secret?: string }> {
-  // Route through proxy to avoid CORS issues
+): Promise<{ client_id: string; client_secret?: string }> => {
   let proxyUrl = createProxyUrl(registrationEndpoint);
   let response = await fetch(proxyUrl, {
     method: 'POST',
@@ -178,18 +141,15 @@ export async function registerOAuthClient(
   }
 
   return await response.json();
-}
+};
 
-/**
- * Build OAuth authorization URL
- */
-export function buildAuthorizationUrl(
+export let buildAuthorizationUrl = (
   authorizationEndpoint: string,
   clientId: string,
   redirectUri: string,
   scope?: string,
   state?: string
-): string {
+): string => {
   let params = new URLSearchParams({
     response_type: 'code',
     client_id: clientId,
@@ -205,19 +165,15 @@ export function buildAuthorizationUrl(
   }
 
   return `${authorizationEndpoint}?${params.toString()}`;
-}
+};
 
-/**
- * Exchange authorization code for access token
- * Routes through proxy to avoid CORS issues
- */
-export async function exchangeCodeForToken(
+export let exchangeCodeForToken = async (
   tokenEndpoint: string,
   code: string,
   clientId: string,
   clientSecret: string | undefined,
   redirectUri: string
-): Promise<{ access_token: string; refresh_token?: string; expires_in?: number }> {
+): Promise<{ access_token: string; refresh_token?: string; expires_in?: number }> => {
   let body = new URLSearchParams({
     grant_type: 'authorization_code',
     code,
@@ -229,7 +185,6 @@ export async function exchangeCodeForToken(
     body.append('client_secret', clientSecret);
   }
 
-  // Route through proxy to avoid CORS issues
   let proxyUrl = createProxyUrl(tokenEndpoint);
   let response = await fetch(proxyUrl, {
     method: 'POST',
@@ -244,16 +199,13 @@ export async function exchangeCodeForToken(
   }
 
   return await response.json();
-}
+};
 
-/**
- * Create authenticated headers for MCP connection
- */
-export function createAuthHeaders(
+export let createAuthHeaders = (
   authType: 'bearer' | 'custom',
   token?: string,
   customHeaders?: CustomHeaders
-): Record<string, string> {
+): Record<string, string> => {
   if (authType === 'bearer' && token) {
     return {
       Authorization: `Bearer ${token}`
@@ -265,4 +217,4 @@ export function createAuthHeaders(
   }
 
   return {};
-}
+};

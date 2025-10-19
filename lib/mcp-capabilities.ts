@@ -7,14 +7,11 @@ export interface ConnectionLike {
   status: 'connecting' | 'connected' | 'disconnected' | 'error' | 'auth_required';
 }
 
-/**
- * Generic capability listing function that works with any connection type
- */
-export async function listCapability<T>(
+export let listCapability = async <T>(
   connection: ConnectionLike | undefined,
   capabilityType: CapabilityType,
   logError: boolean = true
-): Promise<T[]> {
+): Promise<T[]> => {
   if (!connection || connection.status !== 'connected') {
     return [];
   }
@@ -43,19 +40,14 @@ export async function listCapability<T>(
         return [];
     }
   } catch (error) {
-    // Resource templates are optional, so don't log as error if not supported
     if (logError && capabilityType !== 'resourceTemplates') {
       console.error(`Error listing ${capabilityType}:`, error);
     }
     return [];
   }
-}
+};
 
-/**
- * List all capabilities at once
- * Returns arrays that can be assigned to optional array properties
- */
-export async function listAllCapabilities(connection: ConnectionLike | undefined) {
+export let listAllCapabilities = async (connection: ConnectionLike | undefined) => {
   let [tools, resources, resourceTemplates, prompts] = await Promise.all([
     listCapability(connection, 'tools'),
     listCapability(connection, 'resources'),
@@ -74,4 +66,4 @@ export async function listAllCapabilities(connection: ConnectionLike | undefined
     resourceTemplates?: any[];
     prompts?: any[];
   };
-}
+};

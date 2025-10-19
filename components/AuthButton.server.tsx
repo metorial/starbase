@@ -3,7 +3,7 @@ import { presentSession } from '@/lib/presenters/user';
 import LoginModal from './LoginModal';
 import UserProfile from './UserProfile.client';
 
-export default async function AuthButton() {
+let AuthButton = async () => {
   let session = await auth();
   let publicSession = presentSession(session);
 
@@ -12,4 +12,6 @@ export default async function AuthButton() {
   }
 
   return <LoginModal />;
-}
+};
+
+export default AuthButton;

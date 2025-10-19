@@ -12,7 +12,6 @@ let providers: any[] = [
   })
 ];
 
-// Add GitHub and Google if configured
 if (process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET) {
   providers.push(
     GitHub({
@@ -31,11 +30,11 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
   );
 }
 
-export const { handlers, auth, signIn, signOut } = NextAuth({
+export let { handlers, auth, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(prisma),
   providers,
   pages: {
-    signIn: '/' // Custom sign in page (we'll use a modal instead)
+    signIn: '/'
   },
   callbacks: {
     async session({ session, user }) {

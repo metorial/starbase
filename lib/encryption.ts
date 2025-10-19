@@ -1,13 +1,9 @@
 import crypto from 'crypto';
 
-const ALGORITHM = 'aes-256-gcm';
-const IV_LENGTH = 16;
-const SALT_LENGTH = 64;
+let ALGORITHM = 'aes-256-gcm';
+let IV_LENGTH = 16;
+let SALT_LENGTH = 64;
 
-/**
- * Get encryption key from environment variable
- * Key should be a 32-byte hex string (64 characters)
- */
 let getEncryptionKey = (): Buffer => {
   let key = process.env.ENCRYPTION_KEY;
 
@@ -22,24 +18,19 @@ let getEncryptionKey = (): Buffer => {
   return Buffer.from(key, 'hex');
 };
 
-/**
- * Encrypt data using AES-256-GCM
- * Returns encrypted data with IV and auth tag prepended
- */
 export let encrypt = (plaintext: string): string => {
   try {
     let key = getEncryptionKey();
     let iv = crypto.randomBytes(IV_LENGTH);
     let salt = crypto.randomBytes(SALT_LENGTH);
 
-    let cipher = crypto.createCipheriv(ALGORITHM, key, iv);
+    let cipher = crypto.createCipheriv(ALGORITHM, key, iv) as crypto.CipherGCM;
 
     let encrypted = cipher.update(plaintext, 'utf8', 'hex');
     encrypted += cipher.final('hex');
 
     let authTag = cipher.getAuthTag();
 
-    // Format: salt:iv:authTag:encryptedData
     return [salt.toString('hex'), iv.toString('hex'), authTag.toString('hex'), encrypted].join(
       ':'
     );
@@ -49,14 +40,10 @@ export let encrypt = (plaintext: string): string => {
   }
 };
 
-/**
- * Decrypt data using AES-256-GCM
- */
 export let decrypt = (encryptedData: string): string => {
   try {
     let key = getEncryptionKey();
 
-    // Parse the encrypted data
     let parts = encryptedData.split(':');
     if (parts.length !== 4) {
       throw new Error('Invalid encrypted data format');
@@ -67,7 +54,7 @@ export let decrypt = (encryptedData: string): string => {
     let iv = Buffer.from(ivHex, 'hex');
     let authTag = Buffer.from(authTagHex, 'hex');
 
-    let decipher = crypto.createDecipheriv(ALGORITHM, key, iv);
+    let decipher = crypto.createDecipheriv(ALGORITHM, key, iv) as crypto.DecipherGCM;
     decipher.setAuthTag(authTag);
 
     let decrypted = decipher.update(encrypted, 'hex', 'utf8');
@@ -80,19 +67,12 @@ export let decrypt = (encryptedData: string): string => {
   }
 };
 
-/**
- * Generate a random encryption key (for development/setup)
- * This should be called once and the result stored in .env
- */
 export let generateEncryptionKey = (): string => {
   return crypto.randomBytes(32).toString('hex');
 };
 
-/**
- * Encrypt OAuth credentials
- */
 export let encryptOAuthCredentials = (accessToken: string, refreshToken?: string): string => {
-  const data = JSON.stringify({
+  let data = JSON.stringify({
     accessToken,
     refreshToken: refreshToken || null,
     timestamp: Date.now()
@@ -101,9 +81,6 @@ export let encryptOAuthCredentials = (accessToken: string, refreshToken?: string
   return encrypt(data);
 };
 
-/**
- * Decrypt OAuth credentials
- */
 export let decryptOAuthCredentials = (
   encryptedData: string
 ): {
@@ -115,11 +92,8 @@ export let decryptOAuthCredentials = (
   return JSON.parse(decrypted);
 };
 
-/**
- * Encrypt custom headers
- */
 export let encryptCustomHeaders = (headers: Record<string, string>): string => {
-  const data = JSON.stringify({
+  let data = JSON.stringify({
     headers,
     timestamp: Date.now()
   });
@@ -127,9 +101,6 @@ export let encryptCustomHeaders = (headers: Record<string, string>): string => {
   return encrypt(data);
 };
 
-/**
- * Decrypt custom headers
- */
 export let decryptCustomHeaders = (
   encryptedData: string
 ): {

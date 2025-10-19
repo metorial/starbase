@@ -14,7 +14,7 @@ let postSchema = z.object({
         serverUrl: z.string(),
         serverName: z.string(),
         transport: z.string().optional(),
-        connectionId: z.string().optional()
+        connectionId: z.string().nullable().optional()
       })
     )
     .optional()

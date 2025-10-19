@@ -107,11 +107,15 @@ export let GET = async (req: NextRequest) => {
 
       // Set session cookie and redirect to home
       let response = NextResponse.redirect(new URL('/', req.url));
-      response.cookies.set('authjs.session-token', session.sessionToken, {
+
+      let isProduction = process.env.NODE_ENV === 'production';
+      let cookieName = isProduction ? '__Secure-authjs.session-token' : 'authjs.session-token';
+
+      response.cookies.set(cookieName, session.sessionToken, {
         httpOnly: true,
         sameSite: 'lax',
         path: '/',
-        secure: process.env.NODE_ENV === 'production',
+        secure: isProduction,
         expires: session.expires
       });
 

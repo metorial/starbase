@@ -211,13 +211,22 @@ export let POST = async (request: Request, { params }: RouteParams) => {
             inputSchema.type = 'object';
           }
 
+          let sanitizedToolName = toolName
+            .replace(/[^a-zA-Z0-9_-]/g, '_')
+            .substring(0, 128);
+
+          if (!sanitizedToolName || sanitizedToolName.length === 0) {
+            console.warn(`[Chat API] Skipping tool with invalid name: ${toolName}`);
+            continue;
+          }
+
           anthropicTools.push({
-            name: toolName,
+            name: sanitizedToolName,
             description: description || `MCP tool: ${toolName}`,
             input_schema: inputSchema
           });
 
-          toolMetadata.set(toolName, _meta);
+          toolMetadata.set(sanitizedToolName, { ..._meta, originalName: toolName });
         } catch (error) {
           console.error(`[Chat API] Error creating tool ${toolName}:`, error);
         }

@@ -21,11 +21,11 @@
 
 ## Motivation
 
-[Model Context Protocol (MCP)](https://modelcontextprotocol.io) servers let AI models interact with tools and data sources. The problem is that testing and debugging them is difficult. When you're building an MCP server, you need to see if your tools actually work with real AI models. When you're evaluating existing servers, you need to understand what they do without diving into source code or setting up complex test environments.
+[MCP servers](https://modelcontextprotocol.io) let AI models interact with tools and data sources. The problem is that testing and debugging them is difficult. When you're building an MCP server, you need to see if your tools actually work with real AI models. When you're evaluating existing servers, you need to understand what they do without diving into source code or setting up complex test environments.
 
 Anthropic's [MCP Inspector](https://github.com/modelcontextprotocol/inspector) helps with basic inspection, but it doesn't let you actually test tools with AI models. You can see what's available, but you can't see how it behaves in practice.
 
-Starbase solves this by letting you connect any MCP server and immediately test it with Claude, GPT-4, or other models. No setup, no boilerplate. You get a working environment to develop, test, and explore MCP servers.
+Starbase solves this by letting you connect any remote MCP server and immediately test it with Claude, GPT-4, or other models. No setup, no boilerplate. You get a working environment to develop, test, and explore MCP servers.
 
 > [!TIP]
 > **Looking for production-ready MCP hosting?**

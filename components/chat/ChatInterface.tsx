@@ -972,7 +972,7 @@ let ChatInterface = ({ chatId, onChatCreated, onChatDeleted }: ChatInterfaceProp
             <option value="gpt-4o-mini">GPT-4o Mini</option>
 
             {/*<option value="gemini-1.5">Gemini 1.5</option>
-            <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>*}
+            <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>*/}
           </ModelSelector>
           <IconButton onClick={() => setShowServerModal(true)}>
             <RiSettings3Line size={18} />

@@ -84,7 +84,9 @@ let LayoutContent = ({ children, authComponent }: LayoutWrapperClientProps) => {
         onNewChat={handleNewChat}
       />
       <MainContent>{children}</MainContent>
-      <PoweredByBar>
+      <PoweredByBar onClick={() => {
+        window.location.href = 'https://metorial.com'
+      }}>
         From
         <MetorialLogo
           width="45"

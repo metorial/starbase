@@ -27,7 +27,7 @@ let MainContent = styled.main`
   height: 100%;
 `;
 
-let PoweredByBar = styled.div`
+let PoweredByBar = styled.a`
   background: #000000;
   color: #ffffff;
   padding: 12px 24px;
@@ -84,9 +84,7 @@ let LayoutContent = ({ children, authComponent }: LayoutWrapperClientProps) => {
         onNewChat={handleNewChat}
       />
       <MainContent>{children}</MainContent>
-      <PoweredByBar onClick={() => {
-        window.location.href = 'https://metorial.com'
-      }}>
+      <PoweredByBar href="https://metorial.com" target="_blank" rel="noopener">
         From
         <MetorialLogo
           width="45"

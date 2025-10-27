@@ -4,9 +4,25 @@ import './globals.css';
 import StyledComponentsRegistry from './registry';
 
 export let metadata: Metadata = {
-  title: 'Starbase',
+  title: 'Starbase by Metorial',
   description:
-    'Connect to MCP servers and chat with AI agents that can use tools and access resources.'
+    'Connect to MCP servers and chat with AI agents that can use tools and access resources.',
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Starbase by Metorial',
+    description:
+      'Connect to MCP servers and chat with AI agents that can use tools and access resources.',
+    images: ['/og-image.png'],
+    site: '@metorialAi',
+    creator: '@metorialAi'
+  },
+  openGraph: {
+    title: 'Starbase by Metorial',
+    description:
+      'Connect to MCP servers and chat with AI agents that can use tools and access resources.',
+    images: ['/og-image.png'],
+    type: 'website'
+  }
 };
 
 let RootLayout = ({ children }: { children: React.ReactNode }) => {

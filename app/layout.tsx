@@ -12,7 +12,6 @@ export let metadata: Metadata = {
     title: 'Starbase by Metorial',
     description:
       'Connect to MCP servers and chat with AI agents that can use tools and access resources.',
-    images: ['/og-image.png'],
     site: '@metorialAi',
     creator: '@metorialAi'
   },
@@ -20,7 +19,6 @@ export let metadata: Metadata = {
     title: 'Starbase by Metorial',
     description:
       'Connect to MCP servers and chat with AI agents that can use tools and access resources.',
-    images: ['/og-image.png'],
     type: 'website'
   }
 };
